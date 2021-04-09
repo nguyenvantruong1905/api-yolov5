@@ -13,18 +13,21 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
-
-from flask_restful import Resource
 import json
 from flask import request , jsonify
+from flask_restful import Resource
+
 class RealTimeAPI(Resource):
     def get(self):
         receive_request_json = request.json
         print(receive_request_json)
-        rs = receive_request_json["resource"]
-        print(rs)
+        source_rq = receive_request_json["source"]
+        print (source_rq)
+        weights_rq = receive_request_json["weights"]
+        print (weights_rq)
         def detect(sources_input, weights_input):
-            pl = []
+
+            result = []
             source, weights, view_img, save_txt, imgsz = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
             source = sources_input
             weights = weights_input
@@ -116,15 +119,39 @@ class RealTimeAPI(Resource):
                             if save_txt:  # Write to file
                                 xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                                 line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
-                                pl.append(xywh)
                                 with open(txt_path + '.txt', 'a') as f:
                                     f.write(('%g ' * len(line)).rstrip() % line + '\n')
                             if save_img or view_img:  # Add bbox to image
                                 label = f'{names[int(cls)]} {conf:.2f}'
                                 plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
-                                print (xyxy)
-                                pl.append(xyxy)
-                    # print(pl)
+
+                                x1 = int(xyxy[0].item())
+                                y1 = int(xyxy[1].item())
+                                x2 = int(xyxy[2].item())
+                                y2 = int(xyxy[3].item())
+
+                                confidence_score =  f'{conf:.5f}'
+                                class_index = cls
+                                object_name = names[int(cls)]
+                                # print (confidence_score)
+                                # print('bounding box is ', x1, y1, x2, y2)
+                                # print('class index is ', class_index)
+                                # print('detected object name is ', object_name)
+                                # original_img = im0
+                                cropped_img = im0[y1:y2, x1:x2]
+                                cv2.imwrite('test.png',cropped_img)
+                                # response ={"object_name":object_name,
+                                #             "confidence_score":confidence_score,
+                                #             "x1":x1,
+                                #             "x2":x2,
+                                #             "y1":y1,
+                                #             "y2":y2
+
+                                # }
+                                arr = [object_name, confidence_score, x1, x2, y1, y2]
+                                result.append(arr)
+                                print(result)
+                                
                     # Print time (inference + NMS)
                     print(f'{s}Done. ({t2 - t1:.3f}s)')
 
@@ -156,10 +183,11 @@ class RealTimeAPI(Resource):
                 s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
                 print(f"Results saved to {save_dir}{s}")
 
-            print (f'Done. ({time.time() - t0:.3f}s)')
-            return pl
+            print(f'Done. ({time.time() - t0:.3f}s)')
+            return result
 
-        # if __name__ == '__main__':
+
+
         parser = argparse.ArgumentParser()
         parser.add_argument('--weights', nargs='+', type=str, default='yolov5s.pt', help='model.pt path(s)')
         parser.add_argument('--source', type=str, default='data/images', help='source')  # file/folder, 0 for webcam
@@ -179,17 +207,14 @@ class RealTimeAPI(Resource):
         parser.add_argument('--name', default='exp', help='save results to project/name')
         parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
         opt = parser.parse_args()
-        print(opt)
-        check_requirements(exclude=('pycocotools', 'thop'))
-        receive_request_json = request.json
-        print(receive_request_json)
-        # resouce_rq = receive_request_json["resouce"]
-        # print(resouce_rq)
-        # weights_rq = receive_request_json["weights"]
-        with torch.no_grad():
-        # if opt.update:  # update all models (to fix SourceChangeWarning)
-        #     for opt.weights in ['yolov5s.pt', 'yolov5m.pt', 'yolov5l.pt', 'yolov5x.pt']:
-        #         detect()
-        #         strip_optimizer(opt.weights)
-        # else:
-            return detect(rs,"yolov5s.pt")
+        # print(opt)
+        # check_requirements(exclude=('pycocotools', 'thop'))
+
+        # with torch.no_grad():
+        #     # if opt.update:  # update all models (to fix SourceChangeWarning)
+        #     #     for opt.weights in ['yolov5s.pt', 'yolov5m.pt', 'yolov5l.pt', 'yolov5x.pt']:
+        #     #         detect()
+        #     #         strip_optimizer(opt.weights)
+        #     # else:
+        return detect(source_rq, weights_rq)
+        
