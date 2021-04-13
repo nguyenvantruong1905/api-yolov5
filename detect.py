@@ -31,6 +31,7 @@ class RealTimeAPI(Resource):
             source, weights, view_img, save_txt, imgsz = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
             source = sources_input
             weights = weights_input
+            save_txt = '--save-txtd'
             save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
             webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
                 ('rtsp://', 'rtmp://', 'http://'))
@@ -119,9 +120,10 @@ class RealTimeAPI(Resource):
                             if save_txt:  # Write to file
                                 xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                                 line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
+
                                 with open(txt_path + '.txt', 'a') as f:
-                                    f.write(('%g ' * len(line)).rstrip() % line + '\n')
-                            if save_img or view_img:  # Add bbox to image
+                                    f.write(names[int(cls)]+(str(f'{conf:.5f}')+" " + str(xyxy[0].item())+ " "+str(xyxy[1].item())+" "+str(xyxy[2].item())+" "+str(xyxy[3].item())+ '\n'))
+                            if save_img or view_img:  # Add bbox to image"
                                 label = f'{names[int(cls)]} {conf:.2f}'
                                 plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
 
@@ -133,24 +135,11 @@ class RealTimeAPI(Resource):
                                 confidence_score =  f'{conf:.5f}'
                                 class_index = cls
                                 object_name = names[int(cls)]
-                                # print (confidence_score)
-                                # print('bounding box is ', x1, y1, x2, y2)
-                                # print('class index is ', class_index)
-                                # print('detected object name is ', object_name)
-                                # original_img = im0
-                                cropped_img = im0[y1:y2, x1:x2]
-                                cv2.imwrite('test.png',cropped_img)
-                                # response ={"object_name":object_name,
-                                #             "confidence_score":confidence_score,
-                                #             "x1":x1,
-                                #             "x2":x2,
-                                #             "y1":y1,
-                                #             "y2":y2
 
-                                # }
+                                cropped_img = im0[y1:y2, x1:x2]
+                                # cv2.imwrite('test.png',cropped_img)
                                 arr = [object_name, confidence_score, x1, x2, y1, y2]
                                 result.append(arr)
-                                print(result)
                                 
                     # Print time (inference + NMS)
                     print(f'{s}Done. ({t2 - t1:.3f}s)')
@@ -203,18 +192,19 @@ class RealTimeAPI(Resource):
         parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
         parser.add_argument('--augment', action='store_true', help='augmented inference')
         parser.add_argument('--update', action='store_true', help='update all models')
-        parser.add_argument('--project', default='runs/detect', help='save results to project/name')
+        parser.add_argument('--project', default='inference', help='save results to project/name')
         parser.add_argument('--name', default='exp', help='save results to project/name')
         parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
         opt = parser.parse_args()
         # print(opt)
         # check_requirements(exclude=('pycocotools', 'thop'))
 
-        # with torch.no_grad():
+        with torch.no_grad():
         #     # if opt.update:  # update all models (to fix SourceChangeWarning)
         #     #     for opt.weights in ['yolov5s.pt', 'yolov5m.pt', 'yolov5l.pt', 'yolov5x.pt']:
         #     #         detect()
         #     #         strip_optimizer(opt.weights)
         #     # else:
-        return detect(source_rq, weights_rq)
+            return detect(source_rq, weights_rq)
+
         
